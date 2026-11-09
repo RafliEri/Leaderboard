@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaderboard TV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-dark: #01271d;
+    --green: #0fd584;
+    --green-strong: #0b8d58;
+    --ink: #123629;
+    --muted: #5f6d66;
+    --line: #e3e9e4;
+    --card: #ffffff;
+    --under: #d6342c;   /* under par */
+    --gold: #f2c94c;
+    --silver: #c9d1cc;
+    --bronze: #d9a066;
+    --header-h: 92px;
+    --footer-h: clamp(84px, 11vh, 132px);
+    --gap: clamp(10px, 1.2vw, 20px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: Lato, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 16%, rgba(15, 213, 132, 0.08), transparent 24%),
+      radial-gradient(circle at 86% 24%, rgba(1, 39, 29, 0.08), transparent 26%),
+      linear-gradient(180deg, #f7f8f6 0%, #eef2ee 100%);
+    overflow: hidden;
+  }
+  .page { height: 100vh; display: flex; flex-direction: column; }
+
+  /* ---- Header: same design as the Lemiplay leaderboard topbar ---- */
+  .topbar {
+    height: var(--header-h); flex-shrink: 0;
+    background: var(--green-dark); color: var(--green);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(20px, 5vw, 44px);
+  }
+  .topbar__logo { height: 42px; width: auto; }
+  .topbar__nav {
+    display: flex; align-items: center; gap: clamp(18px, 4vw, 44px);
+    margin-right: auto; margin-left: clamp(24px, 5vw, 72px);
+  }
+  .topbar__nav-button {
+    position: relative; border: 0; background: transparent;
+    color: rgba(240, 245, 242, 0.9); padding: 12px 0 14px;
+    font: 800 0.98rem Lato, sans-serif; letter-spacing: 0.16em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .topbar__nav-button::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+    height: 3px; border-radius: 999px; background: transparent;
+  }
+  .topbar__nav-button--active { color: var(--green); }
+  .topbar__nav-button--active::after { background: var(--green); }
+  .topbar__title {
+    min-width: 0; margin-left: 20px; color: rgba(240, 245, 242, 0.88);
+    font-size: 0.9rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; text-align: right;
+  }
+
+  /* ---- Boards ---- */
+  .boards {
+    flex: 1; min-height: 0;
+    display: grid; gap: var(--gap); padding: var(--gap);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: column;
+  }
+  .card {
+    min-height: 0; display: flex; flex-direction: column;
+    background: var(--card); border-radius: 16px; overflow: hidden;
+    box-shadow: 0 12px 28px rgba(18, 39, 29, 0.08), 0 0 0 1px rgba(1, 39, 29, 0.05);
+  }
+  .card__head {
+    flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+    padding: clamp(6px, 0.8vh, 12px) clamp(12px, 1vw, 18px);
+  }
+  /* Countdown to this card's next refresh */
+  .card__progress { flex-shrink: 0; height: 3px; background: rgba(15, 213, 132, 0.22); }
+  .card__progress span {
+    display: block; height: 100%; background: var(--green); transform-origin: left;
+    transform: scaleX(0);
+  }
+  .card__progress span.is-running { animation: countdown var(--refresh-s, 30s) linear forwards; }
+  @keyframes countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  .card--stale .card__progress { background: rgba(214, 52, 44, 0.25); }
+  .card--stale .card__progress span { background: var(--under); }
+  .card__updated { display: block; margin-top: 2px; font-size: 0.85em; letter-spacing: 0.04em; }
+  .card--stale .card__updated { color: var(--under); }
+  .card__eyebrow {
+    font-size: clamp(0.62rem, 1.1vh, 0.8rem); font-weight: 900;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+  }
+  .card__title {
+    font-family: Anton, sans-serif; font-size: clamp(1.1rem, 2.6vh, 1.9rem);
+    line-height: 1.05; letter-spacing: 0.04em; text-transform: uppercase; color: var(--green-dark);
+  }
+  .card__count {
+    margin-left: auto; text-align: right; font-size: clamp(0.62rem, 1.1vh, 0.8rem);
+    font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .card__count b { display: block; color: var(--green-strong); font-size: 1.35em; }
+
+  /* Column widths use the row text size (--u) so the smaller header text lines up with the rows. */
+  .card--list { --u: clamp(0.78rem, 1.65vh, 1.2rem); }
+  .cols, .row {
+    display: grid; align-items: center;
+    grid-template-columns: calc(var(--u) * 3.2) minmax(0, 1fr) calc(var(--u) * 4.6) calc(var(--u) * 3.4) calc(var(--u) * 3.8);
+    gap: 0 calc(var(--u) * 0.6); padding: 0 clamp(10px, 1vw, 18px);
+  }
+  .cols {
+    flex-shrink: 0; height: clamp(22px, 3vh, 32px);
+    background: #f4f7f4; color: var(--muted);
+    font-size: clamp(0.58rem, 1.05vh, 0.76rem); font-weight: 900;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .card--net .cols, .card--net .row {
+    grid-template-columns: calc(var(--u) * 3.2) minmax(0, 1fr) calc(var(--u) * 4.2) calc(var(--u) * 3) calc(var(--u) * 3) calc(var(--u) * 3.4);
+  }
+  .num { text-align: center; white-space: nowrap; }
+  .card__body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .rows { display: flex; flex-direction: column; flex: 1; }
+  .row {
+    /* Grow to fill the card, but no taller than a normal row, so 1-2 players sit at the top. */
+    flex: 1 1 0; min-height: 26px; max-height: calc(var(--u) * 2.6); line-height: 1.1;
+    font-size: var(--u);
+    border-bottom: 1px solid var(--line);
+  }
+  .row:nth-child(even) { background: #fafcfa; }
+  .row:last-child { border-bottom: 0; }
+  .pos {
+    justify-self: center; min-width: 2.1em; height: 1.55em; padding: 0 0.35em;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px; font-weight: 900; font-size: 0.92em;
+    background: #eef3ef; color: var(--ink);
+  }
+  .row[data-rank="1"] .pos { background: var(--gold); color: #3d2e00; }
+  .row[data-rank="2"] .pos { background: var(--silver); }
+  .row[data-rank="3"] .pos { background: var(--bronze); color: #3b2108; }
+  .player { min-width: 0; display: flex; align-items: baseline; gap: 0.5em; }
+  .player__name {
+    font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-transform: uppercase; letter-spacing: 0.02em;
+  }
+  .player__flight { flex-shrink: 0; font-size: 0.7em; font-weight: 700; color: var(--muted); }
+  .move { flex-shrink: 0; font-size: 0.7em; font-weight: 900; }
+  .move--up { color: var(--green-strong); }
+  .move--down { color: var(--under); }
+  .topar { font-weight: 900; font-size: 1.05em; }
+  .topar--under { color: var(--under); }
+  .topar--even { color: var(--green-strong); }
+  .thru, .gross { font-weight: 700; color: var(--muted); }
+  .gross { color: var(--ink); }
+  .row--flash { animation: flash 2.4s ease-out; }
+  @keyframes flash { from { background: rgba(15, 213, 132, 0.35); } to { background: transparent; } }
+  .empty {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: clamp(0.7rem, 1.4vh, 0.95rem);
+  }
+
+  /* ---- Tabs ---- */
+  .view:not(.view--active) { display: none; }
+
+  /* ---- Hole By Hole: 2 columns (Boys | Girls) x 4 rows (age groups), wider cards ---- */
+  .boards--holes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+  .card--holes .card__head { padding-top: 4px; padding-bottom: 4px; }
+  .card--holes .card__heading { display: flex; align-items: baseline; gap: 10px; }
+  .card--holes .card__title { font-size: clamp(1rem, 2.1vh, 1.5rem); }
+  .card--holes .card__count b { display: inline; margin-right: 4px; font-size: 1.2em; }
+  .card--holes .card__updated { display: inline; margin-left: 8px; }
+  .hcols, .hrow {
+    display: grid; align-items: center;
+    grid-template-columns: 2.4em minmax(0, 1fr) repeat(9, 1.75em) 2.5em repeat(9, 1.75em) 2.5em 2.7em 2.7em;
+    gap: 0 0.15em; padding: 0 clamp(8px, 0.8vw, 14px);
+    font-size: clamp(0.66rem, 1.4vh, 1rem);
+  }
+  .hcols { flex-shrink: 0; height: clamp(18px, 2.4vh, 26px); background: #f4f7f4; color: var(--muted); font-weight: 900; }
+  .hcols > span { font-size: 0.8em; letter-spacing: 0.06em; text-transform: uppercase; }
+  .hcols--par { background: #fbfcfb; font-weight: 700; border-bottom: 1px solid var(--line); }
+  .hcols[hidden] { display: none; }
+  .hrow { flex: 1 0 auto; min-height: 24px; max-height: 2.6em; border-bottom: 1px solid var(--line); }
+  .hrow:nth-child(even) { background: #fafcfa; }
+  .hrow .player__name { font-size: 0.95em; }
+  .hrow .pos { font-size: 0.85em; }
+  .hrow[data-rank="1"] .pos { background: var(--gold); color: #3d2e00; }
+  .hrow[data-rank="2"] .pos { background: var(--silver); }
+  .hrow[data-rank="3"] .pos { background: var(--bronze); color: #3b2108; }
+  .hc { text-align: center; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .hsum { align-self: stretch; display: flex; align-items: center; justify-content: center; font-weight: 900; background: rgba(15, 213, 132, 0.1); }
+  .hs {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.55em; height: 1.55em; border-radius: 4px; font-weight: 900;
+  }
+  .hs--eagle { background: #a8231d; color: #fff; border-radius: 50%; }
+  .hs--birdie { background: var(--under); color: #fff; border-radius: 50%; }
+  .hs--bogey { background: #a7c9b5; }
+  .hs--double { background: var(--green-dark); color: #fff; }
+
+  /* ---- Sponsor footer ---- */
+  .sponsors {
+    height: var(--footer-h); flex-shrink: 0; display: flex; align-items: stretch;
+    background: var(--green-dark); border-top: 4px solid var(--green);
+  }
+  .sponsors__label {
+    flex-shrink: 0; display: flex; flex-direction: column; justify-content: center;
+    padding: 0 clamp(16px, 2vw, 32px); color: var(--green);
+    border-right: 1px solid rgba(240, 245, 242, 0.15);
+    font-family: Anton, sans-serif; font-size: clamp(0.9rem, 2vh, 1.4rem);
+    letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.1;
+  }
+  .sponsors__label small {
+    font-family: Lato, sans-serif; font-size: 0.55em; font-weight: 700;
+    color: rgba(240, 245, 242, 0.7); letter-spacing: 0.12em; margin-top: 4px;
+  }
+  .sponsors__viewport { flex: 1; min-width: 0; overflow: hidden; display: flex; align-items: center; }
+  /* Logos run right -> left forever: the list is repeated twice and slid by half its width. */
+  .sponsors__track { display: flex; align-items: center; width: max-content; }
+  .sponsors__track--moving { animation: marquee var(--marquee-s, 40s) linear infinite; }
+  @keyframes marquee { to { transform: translateX(-50%); } }
+  /* Every logo sits in a same-size slot with no background (add light: true for a white tile). */
+  .sponsor {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    height: calc(var(--footer-h) - 28px); width: calc((var(--footer-h) - 28px) * 2);
+    padding: 8px 14px; border-radius: 10px; margin-right: clamp(12px, 1.2vw, 24px);
+  }
+  .sponsor--light { background: #fff; box-shadow: none; }
+  .sponsor img { max-height: 100%; max-width: 100%; object-fit: contain; transform: scale(var(--scale, 1)); }
+  .sponsor__text {
+    font-family: Anton, sans-serif; font-size: clamp(1rem, 2.4vh, 1.7rem);
+    color: #fff; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+  }
+  .status {
+    flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
+    padding: 0 clamp(14px, 1.6vw, 28px); border-left: 1px solid rgba(240, 245, 242, 0.15);
+    font-size: clamp(0.6rem, 1.1vh, 0.8rem); font-weight: 700; color: rgba(240, 245, 242, 0.7);
+    letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+  }
+  .status__live { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 900; font-size: 1.2em; }
+  .status__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); animation: pulse 1.6s infinite; }
+  .status--stale .status__live { color: var(--under); }
+  .status--stale .status__dot { background: var(--under); }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  #fs {
+    position: fixed; right: 12px; top: calc(var(--header-h) + 8px); z-index: 10;
+    padding: 6px 12px; border: 0; border-radius: 6px; background: rgba(1, 39, 29, 0.8);
+    color: #fff; font: 700 12px Lato, sans-serif; cursor: pointer; opacity: 0; transition: opacity .2s;
+  }
+  body:hover #fs { opacity: 0.6; }
+  #fs:hover { opacity: 1; }
+  :fullscreen #fs { display: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <img src="https://tournament.lemiplay.app/logoLP.png" alt="Lemiplay" class="topbar__logo">
+    <nav class="topbar__nav">
+      <button type="button" class="topbar__nav-button topbar__nav-button--active" data-tab="leaderboard">Leaderboard</button>
+      <button type="button" class="topbar__nav-button" data-tab="net" hidden>Leaderboard Net</button>
+      <button type="button" class="topbar__nav-button" data-tab="holes">Hole By Hole</button>
+    </nav>
+    <div class="topbar__title" id="eventTitle">Tournament Leaderboard</div>
+  </header>
+
+  <main class="boards view view--active" id="boards" data-view="leaderboard"></main>
+  <main class="boards view" id="net" data-view="net"></main>
+  <main class="boards boards--holes view" id="holes" data-view="holes"></main>
+
+  <footer class="sponsors">
+    <div class="sponsors__label">Our Sponsors<small>Thank you for your support</small></div>
+    <div class="sponsors__viewport" id="sponsorViewport"><div class="sponsors__track" id="sponsorTrack"></div></div>
+    <div class="status" id="status">
+      <span class="status__live"><span class="status__dot"></span><span id="statusText">Live</span></span>
+      <span id="updated">Loading…</span>
+    </div>
+  </footer>
+</div>
+<button id="fs">Fullscreen</button>
+
+<script>
+  // ---------- Settings ----------
+  const API = "https://api.lemiplay.app/api/v1/tourney";
+  const AUTH = "Basic d2ViX2lkOndlYl9zZWNyZXQ=";
+  const TOP_N = 20;
+  const REFRESH_SECONDS = 30;
+  const AUTO_SWITCH_SECONDS = 0; // e.g. 60 to cycle Leaderboard -> Net -> Hole By Hole on the TV; 0 = off
+
+  // RGC Junior Season Race II: 4 columns x 2 rows, Boys on top, Girls on bottom
+  // (listed in pairs because the grid fills column by column).
+  const TOURNAMENTS = [
+    { id: "20005922-be21-44dd-9371-66523e27a66f", categories: [
+      "be549313-22e4-4794-8511-0d8cb89b7ddd", "1c2713c2-47e1-4023-811c-cadfa016fc8c", // Boys 7 Under / Girls Under 8
+      "c1e38220-414d-40a7-9fb9-e1d23a73f3d9", "ceefd361-eaeb-4a59-9a68-01722cd5656e", // Boys 8-10 / Girls 9-12
+      "39eaec8d-c6bf-4449-848e-2550d0432888", "82231531-dfb4-4fee-8992-21d4f2e41e0b", // Boys 11-14 / Girls 13-15
+      "551a3218-9a32-4121-a569-13199bd7d5cf", "3bc36102-e2fb-47eb-ad11-25a76f4e6065", // Boys 15-17 / Girls 16-17
+    ] },
+  ];
+
+  // Sponsor logos live in the "sponsors" folder next to this page. Without a logo the name is shown.
+  //   light: true  -> white tile, for colored/dark logos (white logos stay on the dark tile)
+  //   scale: 1.5   -> enlarge a logo whose image has a lot of empty space around it
+  const SPONSORS = [
+    { name: "Mandiri", logo: "sponsors/mandiri.png" },
+    { name: "Rumah Sakit Jakarta", logo: "sponsors/rs-jakarta.png" },
+    { name: "Topgolf Jakarta", logo: "sponsors/topgolf-jakarta.png" },
+    { name: "mo-la-gi", logo: "sponsors/molagi.png" },
+    { name: "Motherlove", logo: "sponsors/motherlove.png" },
+    { name: "Mutual", logo: "sponsors/mutual.png" },
+    { name: "Combiphar", logo: "sponsors/combiphar.png" },
+    { name: "Dr Teal's", logo: "sponsors/dr-teals.png" },
+    { name: "Emina", logo: "sponsors/emina.png" },
+  ];
+  const SPONSOR_SPEED = 60; // px per second, right to left
+
+  // ---------- Helpers ----------
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const blank = (v) => v === null || v === undefined || v === "";
+
+  async function api(path) {
+    const res = await fetch(API + path, { headers: { accept: "application/json", Authorization: AUTH } });
+    if (!res.ok) throw new Error(`${res.status} ${path}`);
+    return res.json();
+  }
+
+  function formatToPar(v) {
+    if (blank(v)) return { text: "-", cls: "" };
+    const n = Number(v);
+    if (!Number.isFinite(n)) return { text: String(v), cls: "" };
+    if (n === 0) return { text: "E", cls: "topar--even" };
+    return n > 0 ? { text: `+${n}`, cls: "" } : { text: String(n), cls: "topar--under" };
+  }
+
+  function playerName(p = {}) {
+    const last = String(p.last_name || "").trim();
+    return [p.first_name, last && last !== "-" ? last : null].filter(Boolean).join(" ").trim() || p.name || "Player";
+  }
+
+  const genderLabel = (c = {}) =>
+    ({ men: "Men", male: "Men", women: "Women", female: "Women", mixed: "Mixed" }[String(c.gender || "").toLowerCase()]) ||
+    [c.gender, c.type].filter(Boolean).join(" ") || "Category";
+
+  // ---------- Boards ----------
+  // Each board (tournament + category) has one card on the Leaderboard tab and one on
+  // the Hole By Hole tab; both are filled from the same leaderboard response.
+  const HOLES = Array.from({ length: 18 }, (_, i) => i + 1);
+  const boards = [];
+
+  const cardHead = () => `
+    <div class="card__head">
+      <div class="card__heading"><div class="card__eyebrow">Loading…</div><div class="card__title">&nbsp;</div></div>
+      <div class="card__count"><b class="card__total">&nbsp;</b>Players<span class="card__updated">&nbsp;</span></div>
+    </div>
+    <div class="card__progress"><span></span></div>`;
+
+  function makeCard(parent, extraClass, innerHtml) {
+    const el = document.createElement("section");
+    el.className = "card " + extraClass;
+    el.innerHTML = cardHead() + innerHtml;
+    parent.appendChild(el);
+    return { el, scroller: null };
+  }
+
+  for (const t of TOURNAMENTS) {
+    for (const catId of t.categories) {
+      const listCard = (parent, type) => ({ ...makeCard(parent, `card--list card--${type}`, `
+        <div class="cols"><span class="num">Pos</span><span>Player</span><span class="num">To Par</span><span class="num">Thru</span>${
+          type === "net" ? `<span class="num">HCP</span><span class="num">Net</span>` : `<span class="num">Gross</span>`}</div>
+        <div class="card__body"><div class="rows"><div class="empty">Loading…</div></div></div>`), prevPos: new Map() });
+      const list = listCard($("#boards"), "gross");
+      const net = listCard($("#net"), "net");
+      const holes = makeCard($("#holes"), "card--holes", `
+        <div class="hcols">
+          <span class="hc">Pos</span><span>Player</span>
+          ${HOLES.slice(0, 9).map((h) => `<span class="hc">${h}</span>`).join("")}<span class="hc hsum">Out</span>
+          ${HOLES.slice(9).map((h) => `<span class="hc">${h}</span>`).join("")}<span class="hc hsum">In</span>
+          <span class="hc hsum">Tot</span><span class="hc">+/-</span>
+        </div>
+        <div class="hcols hcols--par" hidden></div>
+        <div class="card__body"><div class="rows"><div class="empty">Loading…</div></div></div>`);
+      boards.push({ tournamentId: t.id, catId, cards: [list, net, holes], list, net, holes });
+    }
+  }
+
+  const allCards = () => boards.flatMap((b) => b.cards);
+  const setText = (b, sel, text) => b.cards.forEach((c) => { $(sel, c.el).textContent = text; });
+
+  async function loadMeta() {
+    const names = [];
+    await Promise.all(TOURNAMENTS.map(async (t) => {
+      const [tour, cats] = await Promise.all([
+        api(`/tournaments/${t.id}`).catch(() => null),
+        api(`/tournaments/${t.id}/categories?page=1&limit=50`).catch(() => null),
+      ]);
+      const tName = tour?.data?.name?.name || tour?.data?.name || "Tournament";
+      names.push(tName);
+      for (const b of boards.filter((b) => b.tournamentId === t.id)) {
+        const cat = (cats?.data || []).find((c) => c.id === b.catId);
+        setText(b, ".card__eyebrow", tName);
+        setText(b, ".card__title", cat?.divisions?.[0]?.name || genderLabel(cat));
+        b.tournamentName = tName;
+      }
+    }));
+    shortenTournamentNames(names);
+  }
+
+  // "IAE-ITB Charity Golf 2026: Continuum WN" x3 -> header shows the shared part, cards show "Continuum WN".
+  function shortenTournamentNames(names) {
+    if (!names.length) return;
+    let prefix = names[0];
+    for (const n of names) while (!n.startsWith(prefix)) prefix = prefix.slice(0, -1);
+    const cut = Math.max(prefix.lastIndexOf(":"), prefix.lastIndexOf(" - "));
+    const shared = cut > 0 ? prefix.slice(0, cut).trim() : "";
+    if (shared) {
+      $("#eventTitle").textContent = shared;
+      for (const b of boards) {
+        setText(b, ".card__eyebrow", b.tournamentName.slice(cut + 1).replace(/^[\s:-]+/, ""));
+      }
+    } else {
+      $("#eventTitle").textContent = names.length === 1 ? names[0] : "Tournament Leaderboard";
+    }
+  }
+
+  const rowPlayer = (r) => (Array.isArray(r.player) ? r.player[0] || {} : r.player || {});
+  const posText = (r) => (blank(r.pos) ? "-" : `${r.is_tied ? "T" : ""}${r.pos}`);
+
+  function renderBoard(b, grossJson, netJson) {
+    const list = (grossJson?.data || []).slice(0, TOP_N);
+    const total = grossJson?.meta?.pagination?.total ?? list.length;
+    setText(b, ".card__total", total);
+    setText(b, ".card__updated", "Updated " + timeNow());
+    renderList(b.list, list, "gross");
+    renderList(b.net, (netJson?.data || []).slice(0, TOP_N), "net");
+    renderHoles(b, list);
+  }
+
+  // HCP column: handicap_index when the API sends it (player or scorecard),
+  // otherwise the playing handicap in scorecard.handicap.
+  function hcpOf(r, p, sc) {
+    for (const v of [p.handicap_index, sc.handicap_index, r.handicap_index, sc.handicap]) if (!blank(v)) return v;
+    return null;
+  }
+
+  // The API's to_par is always gross; net to par = net score - par of the holes played.
+  function netToPar(sc) {
+    const gross = Number(sc.gross_score), toPar = Number(sc.to_par), net = Number(sc.net_score);
+    if (blank(sc.net_score) || blank(sc.gross_score) || blank(sc.to_par) || ![gross, toPar, net].every(Number.isFinite)) return null;
+    return net - (gross - toPar);
+  }
+
+  function renderList(card, list, type) {
+    const rowsEl = $(".rows", card.el);
+    if (!list.length) {
+      rowsEl.innerHTML = `<div class="empty">No scores yet</div>`;
+      return;
+    }
+    const nextPos = new Map();
+    rowsEl.innerHTML = list.map((r, i) => {
+      const p = rowPlayer(r);
+      const sc = p.scorecard || {};
+      const key = r.id || p.id || i;
+      const pos = blank(r.pos) ? null : Number(r.pos);
+      nextPos.set(key, pos);
+      const prev = card.prevPos.get(key);
+      let move = "", flash = false;
+      if (pos !== null && prev !== undefined) {
+        if (prev === null || pos < prev) { move = `<span class="move move--up">▲${prev ? prev - pos : ""}</span>`; flash = true; }
+        else if (pos > prev) move = `<span class="move move--down">▼${pos - prev}</span>`;
+      }
+      const toPar = formatToPar(type === "net" ? netToPar(sc) : sc.to_par);
+      const score = type === "net" ? sc.net_score : sc.gross_score;
+      const flight = p.division?.name || r.division?.name || "";
+      return `
+        <div class="row${flash ? " row--flash" : ""}" data-rank="${pos ?? ""}">
+          <span class="pos">${posText(r)}</span>
+          <span class="player"><span class="player__name">${esc(playerName(p))}</span>${move}${flight ? `<span class="player__flight">${esc(flight)}</span>` : ""}</span>
+          <span class="num topar ${toPar.cls}">${toPar.text}</span>
+          <span class="num thru">${blank(sc.thru) ? "-" : esc(sc.thru)}</span>
+          ${type === "net" ? `<span class="num thru">${esc(hcpOf(r, p, sc) ?? "-")}</span>` : ""}
+          <span class="num gross">${blank(score) ? "-" : esc(score)}</span>
+        </div>`;
+    }).join("");
+    card.prevPos = nextPos;
+    autoScroll(card);
+  }
+
+  // Scorecard logs -> { 1: {score, par}, ..., 18: {...} }, read the same way the Lemiplay site does.
+  function holesByNumber(sc = {}) {
+    const logs = Array.isArray(sc.logs) ? sc.logs : Array.isArray(sc.scorecard_logs) ? sc.scorecard_logs : [];
+    const out = {};
+    for (const l of logs) {
+      const n = Number(l.hole || l.hole_number || 0);
+      const hole = n > 9 ? n : Number(l.half || 1) === 2 ? n + 9 : n;
+      if (hole < 1 || hole > 18) continue;
+      const score = !blank(l.score) ? l.score : !blank(l.player_score) ? l.player_score : null;
+      out[hole] = { score: score === null ? null : Number(score), par: blank(l.par) ? null : Number(l.par) };
+    }
+    return out;
+  }
+
+  const sumHoles = (byHole, holes) => {
+    const s = holes.map((h) => byHole[h]?.score).filter((v) => Number.isFinite(v));
+    return s.length ? s.reduce((a, v) => a + v, 0) : null;
+  };
+
+  function scoreCell(h) {
+    if (!h || !Number.isFinite(h.score)) return `<span class="hc">·</span>`;
+    let cls = "";
+    if (Number.isFinite(h.par)) {
+      const d = h.score - h.par;
+      cls = d <= -2 ? "hs--eagle" : d === -1 ? "hs--birdie" : d === 1 ? "hs--bogey" : d >= 2 ? "hs--double" : "";
+    }
+    return `<span class="hc"><span class="hs ${cls}">${h.score}</span></span>`;
+  }
+
+  function renderHoles(b, list) {
+    const rowsEl = $(".rows", b.holes.el);
+    if (!list.length) {
+      rowsEl.innerHTML = `<div class="empty">No scores yet</div>`;
+      return;
+    }
+    const rows = list.map((r) => ({ r, p: rowPlayer(r), byHole: holesByNumber(rowPlayer(r).scorecard || {}) }));
+
+    // Par row: first par found for each hole across the listed players.
+    const par = {};
+    for (const { byHole } of rows) for (const h of HOLES) if (par[h] === undefined && Number.isFinite(byHole[h]?.par)) par[h] = byHole[h].par;
+    const parRow = $(".hcols--par", b.holes.el);
+    if (Object.keys(par).length) {
+      const parSum = (hs) => hs.reduce((a, h) => a + (par[h] ?? 0), 0) || "";
+      parRow.innerHTML = `
+        <span></span><span>Par</span>
+        ${HOLES.slice(0, 9).map((h) => `<span class="hc">${par[h] ?? ""}</span>`).join("")}<span class="hc hsum">${parSum(HOLES.slice(0, 9))}</span>
+        ${HOLES.slice(9).map((h) => `<span class="hc">${par[h] ?? ""}</span>`).join("")}<span class="hc hsum">${parSum(HOLES.slice(9))}</span>
+        <span class="hc hsum">${parSum(HOLES)}</span><span></span>`;
+      parRow.hidden = false;
+    } else {
+      parRow.hidden = true;
+    }
+
+    rowsEl.innerHTML = rows.map(({ r, p, byHole }) => {
+      const sc = p.scorecard || {};
+      const out = sumHoles(byHole, HOLES.slice(0, 9));
+      const inn = sumHoles(byHole, HOLES.slice(9));
+      const tot = out !== null || inn !== null ? (out || 0) + (inn || 0) : sc.gross_score;
+      const toPar = formatToPar(sc.to_par);
+      const pos = blank(r.pos) ? "" : Number(r.pos);
+      return `
+        <div class="hrow" data-rank="${pos}">
+          <span class="hc"><span class="pos">${posText(r)}</span></span>
+          <span class="player"><span class="player__name">${esc(playerName(p))}</span></span>
+          ${HOLES.slice(0, 9).map((h) => scoreCell(byHole[h])).join("")}<span class="hc hsum">${out ?? "-"}</span>
+          ${HOLES.slice(9).map((h) => scoreCell(byHole[h])).join("")}<span class="hc hsum">${inn ?? "-"}</span>
+          <span class="hc hsum">${blank(tot) ? "-" : esc(tot)}</span>
+          <span class="hc topar ${toPar.cls}">${toPar.text}</span>
+        </div>`;
+    }).join("");
+    autoScroll(b.holes);
+  }
+
+  const timeNow = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  // Restart a card's countdown bar so it empties until the next refresh.
+  function restartCountdown(card) {
+    const bar = $(".card__progress span", card.el);
+    bar.classList.remove("is-running");
+    void bar.offsetWidth; // reflow so the animation starts over
+    bar.classList.add("is-running");
+  }
+
+  async function refresh() {
+    const results = await Promise.allSettled(boards.map(async (b) => {
+      try {
+        const url = (type, extra = "") => `/tournaments/${b.tournamentId}/leaderboards?page=1&limit=${TOP_N}${extra}&filter=` +
+          encodeURIComponent(`category_id:eq:${b.catId};division_id:null;type:eq:${type}`);
+        const [grossJson, netJson] = await Promise.all([api(url("gross", "&holes=true")), api(url("net"))]);
+        renderBoard(b, grossJson, netJson);
+        b.cards.forEach((c) => c.el.classList.remove("card--stale"));
+      } catch (err) {
+        b.cards.forEach((c) => c.el.classList.add("card--stale")); // keep showing the last scores
+        throw err;
+      } finally {
+        b.cards.forEach(restartCountdown);
+      }
+    }));
+    const failed = results.filter((r) => r.status === "rejected");
+    failed.forEach((r) => console.error(r.reason));
+    const status = $("#status");
+    status.classList.toggle("status--stale", failed.length > 0);
+    $("#statusText").textContent = failed.length ? "Reconnecting" : "Live";
+    if (failed.length < boards.length) {
+      $("#updated").textContent = "Updated " + timeNow();
+    }
+  }
+
+  // Scrolls a card slowly down and back up when its rows don't fit; stays still when they do.
+  // Cards on the hidden tab have no height, so they are started again when their tab opens.
+  function autoScroll(card) {
+    const body = $(".card__body", card.el);
+    cancelAnimationFrame(card.scroller);
+    body.scrollTop = 0;
+    const distance = body.scrollHeight - body.clientHeight;
+    if (distance <= 2) return;
+    const PAUSE = 3000, SPEED = 25; // px per second
+    const travel = (distance / SPEED) * 1000;
+    let start = null;
+    const step = (now) => {
+      if (start === null) start = now;
+      const t = now - start;
+      if (t < PAUSE) body.scrollTop = 0;
+      else if (t < PAUSE + travel) body.scrollTop = distance * ((t - PAUSE) / travel);
+      else if (t < PAUSE * 2 + travel) body.scrollTop = distance;
+      else start = now;
+      card.scroller = requestAnimationFrame(step);
+    };
+    card.scroller = requestAnimationFrame(step);
+  }
+
+  // ---------- Tabs ----------
+  function showTab(name) {
+    document.querySelectorAll(".topbar__nav-button").forEach((btn) =>
+      btn.classList.toggle("topbar__nav-button--active", btn.dataset.tab === name));
+    document.querySelectorAll(".view").forEach((v) => v.classList.toggle("view--active", v.dataset.view === name));
+    const cards = boards.map((b) => ({ leaderboard: b.list, net: b.net, holes: b.holes }[name]));
+    requestAnimationFrame(() => cards.forEach(autoScroll));
+  }
+  document.querySelectorAll(".topbar__nav-button").forEach((btn) => btn.addEventListener("click", () => showTab(btn.dataset.tab)));
+  const TABS = ["leaderboard", "holes"]; // Net tab hidden; add "net" back (and remove `hidden` on its button) to show it
+  if (TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1)); // e.g. #holes
+  if (AUTO_SWITCH_SECONDS > 0) {
+    setInterval(() => {
+      const current = TABS.indexOf($(".topbar__nav-button--active").dataset.tab);
+      showTab(TABS[(current + 1) % TABS.length]);
+    }, AUTO_SWITCH_SECONDS * 1000);
+  }
+
+  // ---------- Sponsors ----------
+  function renderSponsors() {
+    const track = $("#sponsorTrack"), viewport = $("#sponsorViewport");
+    const html = SPONSORS.map((s) => `<div class="sponsor${s.light ? " sponsor--light" : ""}">${
+      s.logo
+        ? `<img src="${esc(s.logo)}" alt="${esc(s.name)}"${s.scale ? ` style="--scale:${Number(s.scale)}"` : ""}>`
+        : `<span class="sponsor__text">${esc(s.name)}</span>`
+    }</div>`).join("");
+    track.classList.remove("sponsors__track--moving");
+    track.innerHTML = html;
+    requestAnimationFrame(() => {
+      // Repeat the list until one copy is wider than the footer, then double it so the
+      // -50% slide loops seamlessly.
+      const copies = Math.max(1, Math.ceil(viewport.clientWidth / Math.max(track.scrollWidth, 1)));
+      const copy = html.repeat(copies);
+      track.innerHTML = copy + copy;
+      track.style.setProperty("--marquee-s", `${track.scrollWidth / 2 / SPONSOR_SPEED}s`);
+      track.classList.add("sponsors__track--moving");
+    });
+  }
+
+  // ---------- Start ----------
+  document.documentElement.style.setProperty("--refresh-s", `${REFRESH_SECONDS}s`);
+  renderSponsors();
+  window.addEventListener("resize", () => { renderSponsors(); allCards().forEach(autoScroll); });
+  loadMeta().finally(refresh);
+  setInterval(refresh, REFRESH_SECONDS * 1000);
+
+  $("#fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+</script>
+</body>
+</html>
